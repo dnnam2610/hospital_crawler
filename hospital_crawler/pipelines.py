@@ -9,7 +9,7 @@ from itemadapter import ItemAdapter
 import os
 import io
 import re
-import json
+
 from google.oauth2 import service_account
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.oauth2.credentials import Credentials
@@ -65,7 +65,7 @@ class GoogleDrivePipeline:
             credentials = None
 
             # Khởi tạo credentials bằng file token
-            if self.oauth_token_file:
+            if self.oauth_token_file and  os.path.exists(self.oauth_token_file):
                 credentials = Credentials.from_authorized_user_file(
                     self.oauth_token_file, 
                     scopes = ['https://www.googleapis.com/auth/drive.file']
