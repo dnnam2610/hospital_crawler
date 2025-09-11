@@ -9,22 +9,24 @@ import json
 import traceback
 import re
 import os
+import shutil
 
 
 class TaHospitalSpider(scrapy.Spider):
     name = "ta_hospital"
+    visited_urls_file = "visited_urls.json"
     allowed_domains = ["tamanhhospital.vn"]
     start_urls = [
         # "https://tamanhhospital.vn/",
-        # "https://tamanhhospital.vn/benh-sitemap1.xml",
-        # "https://tamanhhospital.vn/benh-sitemap2.xml", # 1296 urls
-        # "https://tamanhhospital.vn/thuoc-sitemap.xml", # 243 urls
-        # "https://tamanhhospital.vn/cothenguoi-sitemap.xml", # 224 urls
-        # "https://tamanhhospital.vn/tiemchung-sitemap.xml", # 171 urls
-        # "https://tamanhhospital.vn/vikhuan-sitemap.xml", # 6 urls
-        # "https://tamanhhospital.vn/virus-sitemap.xml", # 25 urls
-        # "https://tamanhhospital.vn/tebao-sitemap.xml", # 17 urls
-        # "https://tamanhhospital.vn/vitamin-sitemap.xml", # 15 urls
+        "https://tamanhhospital.vn/benh-sitemap1.xml",
+        "https://tamanhhospital.vn/benh-sitemap2.xml", # 1296 urls
+        "https://tamanhhospital.vn/thuoc-sitemap.xml", # 243 urls
+        "https://tamanhhospital.vn/cothenguoi-sitemap.xml", # 224 urls
+        "https://tamanhhospital.vn/tiemchung-sitemap.xml", # 171 urls
+        "https://tamanhhospital.vn/vikhuan-sitemap.xml", # 6 urls
+        "https://tamanhhospital.vn/virus-sitemap.xml", # 25 urls
+        "https://tamanhhospital.vn/tebao-sitemap.xml", # 17 urls
+        "https://tamanhhospital.vn/vitamin-sitemap.xml", # 15 urls
         "https://tamanhhospital.vn/hormone-sitemap.xml" # 4 urls
         ]
 
@@ -40,7 +42,7 @@ class TaHospitalSpider(scrapy.Spider):
         },
 
         # Google Drive settings
-        "GOOGLE_OAUTH_KEY_FILE": "/Users/nhatnamdo/Documents/Workspace/hospital_crawler/hospital_crawler/credentials.json",
+        "GOOGLE_OAUTH_KEY_FILE": "credentials.json",
         "GOOGLE_OAUTH_TOKEN_FILE": 'token.json',
         "GOOGLE_DRIVE_PARENT_FOLDER_ID": '1LY22CGQ8w1Y8ciZuv46pCQPIiKKiGLfs',  # None để tự tạo folder root
 
@@ -63,7 +65,30 @@ class TaHospitalSpider(scrapy.Spider):
         #     "hormone": []
         # }
         self.visited_urls = set()  # lưu tạm các URL để khi kết thúc sẽ ghi ra file
+        
+        # Load từ file nếu có
+        if os.path.exists(self.visited_urls_file):
+            try:
+                with open(self.visited_urls_file, "r", encoding="utf-8") as f:
+                    self.visited_urls = set(json.load(f))
+                self.logger.info(f"✅ Loaded {len(self.visited_urls)} visited URLs from {self.visited_urls_file}")
+            except Exception as e:
+                self.logger.error(f"❌ Failed to load visited URLs: {e}")
 
+    def closed(self, reason):
+        try:
+            # Kiểm tra nếu file tồn tại thì backup
+            if os.path.exists(self.visited_urls_file):
+                backup_file = self.visited_urls_file + ".backup"
+                shutil.copy2(self.visited_urls_file, backup_file)
+                self.logger.info(f"💾 Backup created: {backup_file}")
+
+            # Ghi đè file mới
+            with open(self.visited_urls_file, "w", encoding="utf-8") as f:
+                json.dump(list(self.visited_urls), f, indent=2, ensure_ascii=False)
+            self.logger.info(f"💾 Saved {len(self.visited_urls)} visited URLs to {self.visited_urls_file}")
+        except Exception as e:
+            self.logger.error(f"❌ Failed to save visited URLs: {e}")
 
     def parse(self, response):
         if response.status == 403:
@@ -166,10 +191,7 @@ class TaHospitalSpider(scrapy.Spider):
 
     def parse_full_info(self, detail_container, url):
         """
-        Extracts and formats content from <h2>, <h3>, <p>, <ul>, <li> tags.
-        - Bold / anchor text inside these tags will be included.
-        - h2 sections are separated by blank lines (\n\n).
-        - <ul>/<li> items are formatted with "- " prefix.
+        Lay toan bo noi dung trong phan body 
         """
         allowed_tags = ["h2", "h3", "p","li"]
         document_lines = []
